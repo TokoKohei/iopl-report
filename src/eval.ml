@@ -6,6 +6,7 @@ type exval =
   | ProcV of id * exp * dnval Environment.t ref (* 3.4.1 クロージャが作成された時点の環境をデータ構造に含めている．& 3.5.1 Changed! 関数閉包内の環境を参照型で保持するように変更 *)
   | ConsV of exval * exval (* 3.6.2 cons cell: (head, tail) *)
   | NilV (* 3.6.2 空リスト *)
+  | StringV of string
 and dnval = exval
 
 exception Error of string
@@ -27,6 +28,7 @@ let rec string_of_exval = function
             "[" ^ String.concat "; " (List.rev acc) ^ " | " ^ tail_str ^ "]"
       in
       list_to_string [string_of_exval head] tail
+  | StringV s: id -> "\"" ^ s ^ "\"" (* 文字列値の文字列表現 *)
 
 let pp_val v = print_string (string_of_exval v)
 
@@ -79,6 +81,31 @@ let rec eval_exp env = function
         let arg1 = eval_exp env exp1 in
         let arg2 = eval_exp env exp2 in
         apply_prim op arg1 arg2)
+  | SLit s -> StringV s 
+  | StrConcatExp (exp1, exp2) -> (* 文字列連結の評価 *)
+      let str1 = eval_exp env exp1 in
+      let str2 = eval_exp env exp2 in
+      (match str1, str2 with
+         StringV s1, StringV s2 -> StringV (s1 ^ s2) (* 文字列を連結 *)
+       | _, _ -> err "Both arguments must be strings: ^")
+  | StrGetEXP (exp1, exp2) -> (* 文字列のインデックス取得 *)
+      let str = eval_exp env exp1 in
+      let index = eval_exp env exp2 in
+      (match str, index with
+         StringV s, IntV i ->
+          if n>= 0 && i < String.length s then
+            StringV (String.sub s i 1) (* インデックスが有効な場合、文字を取得 *)
+          else
+            err ("Index out of bounds: " ^ string_of_int i)
+       | _, _ -> err "First argument must be a string and second must be an integer: .[i]")
+  | PrintStrExp exp -> (* 文字列を出力する *)
+      let str_val = eval_exp env exp in
+      (match str_val with
+         StringV str_val ->
+          print_string str_val;
+          flush_all ();
+        StringV string_of_exval
+        | _ -> err "Argument must be a string: print_string")
 
       
   | IfExp (exp1, exp2, exp3) ->

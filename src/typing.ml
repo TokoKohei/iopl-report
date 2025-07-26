@@ -24,6 +24,7 @@ let rec subst_type (subst : (tyvar * ty) list) (ty : ty) : ty = (* 4.3.2 引数 
         TyList (apply_subset (var, ty_subset) t) (* 4.3.2 要素型 t に再帰的に置換を適用 *) 
     in
     List.fold_left (fun acc_ty subst_pair -> apply_subset subst_pair acc_ty) ty subst (* 4.3.2 置換リストsubstを左から順に処理 *)
+    | TyString -> TyString
 
 (* 4.3.5 eqs_of_subst : subst -> (ty * ty) list
    型代入を型の等式集合に変換．型の等式制約 ty1 = ty2 は (ty1,ty2) という
@@ -62,6 +63,8 @@ let rec unify eqs = (* 4.3.3 制約リスト eqs が空かどうか、または�
       unify ((a1, b1) :: (a2, b2) :: rest) (* 4.3.3 関数型の引数と戻り値の型をペアにして残りの制約リストに追加 *)
   | (TyList ty1, TyList ty2) :: rest -> (* 4.3.3 リスト型のペアの場合 *)
       unify ((ty1, ty2) :: rest)  (* 4.3.3 リスト型の要素型をペアにして残りの制約リストに追加 *)
+  | (TyString, TyString) :: rest -> 
+      unify rest 
   | _ -> raise (Error "unification failed")
 
   (* 4.3.5 型環境 tyenv と式 exp を受け取って，型代入と exp の型のペアを返す *)
@@ -116,6 +119,27 @@ let rec ty_exp tyenv exp =
                 [(ty1, TyFun (ty2, ranty))] in
       let s3 = unify eqs in (* 4.3.5 全制約を単一化し，型代入 s3 を得る *)
       (s3, subst_type s3 ranty) (* 4.3.5 型代入 s3 と，それを適用した戻り値型 ranty を返す *)
+  | SLit _ -> ([], TyString) 
+  | StrConcatExp (exp1, exp2) -> (* 文字列連結の型推論 *)
+      let (s1, ty1) = ty_exp tyenv exp1 in (* 4.3.5 exp1 の型推論 *)
+      let (s2, ty2) = ty_exp tyenv exp2 in (* 4.3.5 exp2 の型推論 *)
+      let eqs = (eqs_of_subst s1) @ (eqs_of_subst s2) @ (* 4.3.5 s1, s2 の型代入を制約集合に変換し，両方が文字列型である制約を追加 *)
+                [(ty1, TyString); (ty2, TyString)] in
+      let s3 = unify eqs in (* 4.3.5 全制約を単一化し，型代入 s3 を得る *)
+      (s3, TyString) (* 4.3.5 型代入 s3 と、結果の型 TyString を返す *)
+  | StrGetEXP (exp1, exp2) -> (* 文字列のインデックス取得の型推論 *)
+      let (s1, ty1) = ty_exp tyenv exp1 in (* 4.3.5 exp1 の型推論 *)
+      let (s2, ty2) = ty_exp tyenv exp2 in (* 4.3.5 exp2 の型推論 *)
+      let eqs = (eqs_of_subst s1) @ (eqs_of_subst s2) @ (* 4.3.5 s1, s2 の型代入を制約集合に変換し，exp1 が文字列型、exp2 が整数型である制約を追加 *)
+                [(ty1, TyString); (ty2, TyInt)] in
+      let s3 = unify eqs in (* 4.3.5 全制約を単一化し，型代入 s3 を得る *)
+      (s3, TyString) 
+  | PrintStrExp exp -> (* 文字列の出力の型推論 *)
+      let (s, ty) = ty_exp tyenv exp in (* 4.3.5 exp の型推論 *)
+      let ty_res  = TyVar (fresh_tyvar ()) in (* 4.3.5 出力の戻り値の型として新しい型変数を生成 *)
+      let eqs = (eqs_of_subst s) @ [(ty, TyString)] in
+      let s2 = unify eqs in (* 4.3.5 全制約を単一化し，型代入 s2 を得る *)
+      (s2, TyString) (* 4.3.5 型代入 s
   | _ -> err "Not Implemented!"
 
 

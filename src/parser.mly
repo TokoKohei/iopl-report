@@ -7,6 +7,10 @@
 %token <Syntax.id> ID 
 %token LET REC IN EQ (* 3.3.1 ,3.5.1 *)
 %token RARROW FUN (* 3.4.1 *)
+%token <string> STRINGV 
+%token CONCAT
+%token PRINT_STRING 
+%token DOT_LBRACKET RBRACKET
 
 %start toplevel
 %type <Syntax.program> toplevel
@@ -116,8 +120,12 @@ LetExpr :
   | LET x=ID EQ e1=Expr IN e2=Expr { LetExp (x, e1, e2) } (* 3.3.1 従来の記法 *)
 
 PExpr :
-    l=PExpr PLUS r=MExpr { BinOp (Plus, l, r) }
-  | e=MExpr { e }
+    l=PExpr PLUS r=CONCATExpr { BinOp (Plus, l, r) }
+  | e=Mxpr { e }
+
+CONCATExpr :
+    l=CONCATExpr CONCAT r=MExpr { StrConcatExp (l, r) } (* 文字列連結 *)
+  | e=MExpr { e } (* 文字列連結がない場合はそのまま *)
 
 MExpr :
     l=MExpr MULT r=AppExpr { BinOp (Mult, l, r) }
@@ -125,6 +133,8 @@ MExpr :
 
 AppExpr :
     e1=AppExpr e2=AExpr { AppExp (e1, e2) } (* 3.4.1 *)
+  | e1 = AExpr DOT_LBRACKET e2=EExpr RBRACKET { StrGetExp (e1, e2) } 
+  | PRINT_STRING e=AExpr { PrintStringExp e } 
   | e=AExpr { e }
 
 LetRecExpr :
@@ -147,6 +157,7 @@ AExpr :
   | i=ID   { Var i }
   | LPAREN e=Expr RPAREN { e }
   | e=ListExpr { e } (* 3.6.2 リスト式をAExprに追加 *)
+  | s=STRINGV { SLit s } 
 
 (* 3.6.2 リスト式の構文規則 *)
 ListExpr :
