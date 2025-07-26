@@ -19,6 +19,9 @@ type exp =
   | StrConcatExp of exp * exp 
   | StrGetExp of exp * exp 
   | PrintStrExp of exp 
+  | PairExp of exp * exp
+  | Proj1Exp of exp
+  | Proj2Exp of exp
 
 
 type program =
@@ -38,6 +41,7 @@ type ty =
   | TyFun of ty * ty (* 4.3.1 TyFun(t1,t2) は関数型 t1 -> t2 を表す *)
   | TyList of ty  (* 4.3.1 *)
   | TyString 
+  | TyPair of ty * ty
 
 
 let fresh_tyvar = (* 4.3.1 呼び出すたびに，他とかぶらない新しい tyvar 型の値を返す関数 *)
@@ -62,6 +66,8 @@ let rec string_of_ty = function (* 4.3.1 型の内部表現を人間が読める
   | TyList t -> (* 4.3.1 リスト型 t list を括弧で囲んで表現し、要素型を再帰的に文字列化 *)
       "(" ^ string_of_ty t ^ " list)" 
   | TyString -> "string" 
+  | TyPair (t1, t2) ->
+     "(" ^ string_of_ty t1 ^ " * " ^ string_of_ty t2 ^ ")"
 
 let rec freevar_ty ty = (* 4.3.1 型中に現れる自由型変数（型変数）の集合を収集 *)
   match ty with
@@ -71,6 +77,7 @@ let rec freevar_ty ty = (* 4.3.1 型中に現れる自由型変数（型変数�
   | TyFun (t1, t2) -> MySet.union (freevar_ty t1) (freevar_ty t2) (* 4.3.1 関数型では引数型と返り値型の両方から型変数を収集し、両方の結果の和集合を計算 *)
   | TyList t -> freevar_ty t (* 4.3.1 リスト型では要素型から型変数を収集 *) 
   | TyString -> MySet.empty 
+  | TyPair (t1, t2) ->  MySet.union (freevar_ty t1) (freevar_ty t2)
 
   (* 4.2.1 ty 型の値のための pretty printer *)
 let rec pp_ty typ =
@@ -88,4 +95,10 @@ let rec pp_ty typ =
       print_string "(";
       pp_ty t;
       print_string " list)" 
+    | TyPair (t1, t2) ->
+     print_string "(";
+     pp_ty t1;
+     print_string " * ";
+     pp_ty t2;
+     print_string ")"
   | TyString -> print_string "string" 

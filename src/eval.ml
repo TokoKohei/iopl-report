@@ -7,6 +7,7 @@ type exval =
   | ConsV of exval * exval (* 3.6.2 cons cell: (head, tail) *)
   | NilV (* 3.6.2 空リスト *)
   | StringV of string
+  | PairV of exval * exval
 and dnval = exval
 
 exception Error of string
@@ -29,6 +30,8 @@ let rec string_of_exval = function
       in
       list_to_string [string_of_exval head] tail
   | StringV s  -> "\"" ^ s ^ "\"" (* 文字列値の文字列表現 *)
+  | PairV (v1, v2) ->
+     "(" ^ string_of_exval v1 ^ ", " ^ string_of_exval v2 ^ ")"
 
 let pp_val v = print_string (string_of_exval v)
 
@@ -106,7 +109,14 @@ let rec eval_exp env = function
           flush_all ();
           StringV str_val
         | _ -> err "Argument must be a string: print_string")
-
+  | PairExp (exp1, exp2) ->
+    let v1 = eval_exp env exp1 in
+    let v2 = eval_exp env exp2 in
+    PairV (v1, v2)
+  | Proj1Exp exp ->
+    (match eval_exp env exp with PairV (v, _) -> v | _ -> err "Argument of proj1 must be a pair")
+  | Proj2Exp exp ->
+    (match eval_exp env exp with PairV (_, v) -> v | _ -> err "Argument of proj2 must be a pair")
       
   | IfExp (exp1, exp2, exp3) ->
     let test = eval_exp env exp1 in

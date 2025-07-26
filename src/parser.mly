@@ -11,6 +11,7 @@
 %token CONCAT
 %token PRINT_STRING 
 %token DOT_LBRACKET 
+%token COMMA PROJ1 PROJ2
 
 %start toplevel
 %type <Syntax.program> toplevel
@@ -136,6 +137,8 @@ AppExpr :
   | e1 = AExpr DOT_LBRACKET e2=AExpr RBRACKET { StrGetExp (e1, e2) } 
   | PRINT_STRING e=AExpr { PrintStrExp e } 
   | e=AExpr { e }
+  | PROJ1 e=AExpr { Proj1Exp e }
+  | PROJ2 e=AExpr { Proj2Exp e }
 
 LetRecExpr :
     LET REC f=ID params=ParamList EQ e1=Expr IN e2=Expr {
@@ -156,6 +159,7 @@ AExpr :
   | FALSE  { BLit false }
   | i=ID   { Var i }
   | LPAREN e=Expr RPAREN { e }
+  | LPAREN e1=Expr COMMA e2=Expr RPAREN { PairExp (e1, e2) }
   | e=ListExpr { e } (* 3.6.2 リスト式をAExprに追加 *)
   | s=STRINGV { SLit s } 
 

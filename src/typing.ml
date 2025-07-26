@@ -21,10 +21,12 @@ let rec subst_type (subst : (tyvar * ty) list) (ty : ty) : ty = (* 4.3.2 引数 
     | TyFun (ty1, ty2) ->
         TyFun (apply_subset (var, ty_subset) ty1, (* 4.3.2 引数型ty1と戻り値型ty2の両方に再帰的に置換を適用 *)
                apply_subset (var, ty_subset) ty2) 
+    | TyPair (ty1, ty2) ->
+        TyPair (apply_subset (var, ty_subset) ty1, apply_subset (var, ty_subset) ty2)
     | TyList t -> 
         TyList (apply_subset (var, ty_subset) t) (* 4.3.2 要素型 t に再帰的に置換を適用 *) 
     in
-    List.fold_left (fun acc_ty subst_pair -> apply_subset subst_pair acc_ty) ty subst (* 4.3.2 置換リストsubstを左から順に処理 *)
+    List.fold_left (fun acc_ty subst_pair -> apply_subset subst_pair acc_ty) ty subst
 
 (* 4.3.5 eqs_of_subst : subst -> (ty * ty) list
    型代入を型の等式集合に変換．型の等式制約 ty1 = ty2 は (ty1,ty2) という
@@ -44,6 +46,8 @@ let rec freevars ty =
   | TyVar id -> [id] (* 4.3.3 型変数 TyVar id が出てきたら、その変数名 id をリストにして返す *)
   | TyFun (t1, t2) -> freevars t1 @ freevars t2 (* 4.3.3 関数型 t1 -> t2 の場合、それぞれの型の自由変数を再帰的に求めて結合する *)
   | TyList t -> freevars t (* 4.3.3 リスト型 t list の要素型の自由変数を求める *)
+  | TyString -> []
+  | TyPair (t1, t2) -> freevars t1 @ freevars t2
 
 let rec unify eqs = (* 4.3.3 制約リスト eqs が空かどうか、またはペアの形を見てパターンマッチする *)
   match eqs with
@@ -63,6 +67,8 @@ let rec unify eqs = (* 4.3.3 制約リスト eqs が空かどうか、または�
       unify ((a1, b1) :: (a2, b2) :: rest) (* 4.3.3 関数型の引数と戻り値の型をペアにして残りの制約リストに追加 *)
   | (TyList ty1, TyList ty2) :: rest -> (* 4.3.3 リスト型のペアの場合 *)
       unify ((ty1, ty2) :: rest)  (* 4.3.3 リスト型の要素型をペアにして残りの制約リストに追加 *)
+  | (TyPair (a1, a2), TyPair (b1, b2)) :: rest ->
+      unify ((a1, b1) :: (a2, b2) :: rest)
   | (TyString, TyString) :: rest -> 
       unify rest 
   | _ -> raise (Error "unification failed")
@@ -74,6 +80,9 @@ let ty_prim op ty1 ty2 = match op with
   | Lt -> ([(ty1, TyInt); (ty2, TyInt)], TyBool)
   | And -> ([(ty1, TyBool); (ty2, TyBool)], TyBool)
   | Or -> ([(ty1, TyBool); (ty2, TyBool)], TyBool)
+  | Cons ->
+      let elem_ty = TyVar (fresh_tyvar()) in
+      ([(ty1, elem_ty); (ty2, TyList elem_ty)], TyList elem_ty)
 
 (* 4.3.5 型環境 tyenv と式 exp を受け取って，型代入と exp の型のペアを返す *)
 let rec ty_exp tyenv exp =
@@ -95,8 +104,7 @@ let rec ty_exp tyenv exp =
       let (s2, ty2) = ty_exp tyenv exp2 in (* 4.3.5 then 節 exp2 の型推論 *)
       let (s3, ty3) = ty_exp tyenv exp3 in (* 4.3.5 else 節 exp3 の型推論 *)
       (* 4.3.5 各代入 s1,s2,s3 を制約集合に変換し，型制約を追加 *)
-      let eqs = (eqs_of_subst s1) @ (eqs_of_subst s2) @ (eqs_of_subst s3) @  
-                [(ty1, TyBool); (ty2, ty3)] in
+      let eqs = (eqs_of_subst s1) @ (eqs_of_subst s2) @ (eqs_of_subst s3) @           [(ty1, TyBool); (ty2, ty3)] in
       let s4 = unify eqs in (* 4.3.5 全制約を単一化し，型代入 s4 を得る *)
       (s4, subst_type s4 ty2) (* 4.3.5 型代入 s4 と，それを適用した then 節の型 ty2 を返す *)
   | LetExp (id, exp1, exp2) ->
@@ -135,11 +143,31 @@ let rec ty_exp tyenv exp =
       let s3 = unify eqs in (* 4.3.5 全制約を単一化し，型代入 s3 を得る *)
       (s3, TyString) 
   | PrintStrExp exp -> (* 文字列の出力の型推論 *)
-      let (s, ty) = ty_exp tyenv exp in (* 4.3.5 exp の型推論 *)
-      let ty_res  = TyVar (fresh_tyvar ()) in (* 4.3.5 出力の戻り値の型として新しい型変数を生成 *)
+      let (s, ty) = ty_exp tyenv exp in
       let eqs = (eqs_of_subst s) @ [(ty, TyString)] in
-      let s2 = unify eqs in (* 4.3.5 全制約を単一化し，型代入 s2 を得る *)
-      (s2, TyString)
+      let s2 = unify eqs in
+      (* print式はNilVを返すので、その型である 'a list を表現 *)
+      (s2, TyList (TyVar (fresh_tyvar ())))
+  | PairExp (exp1, exp2) ->
+      let (s1, ty1) = ty_exp tyenv exp1 in
+      let (s2, ty2) = ty_exp tyenv exp2 in
+      let eqs = (eqs_of_subst s1) @ (eqs_of_subst s2) in
+      let s3 = unify eqs in
+      (s3, TyPair (subst_type s3 ty1, subst_type s3 ty2))
+  | Proj1Exp exp ->
+      let (s1, ty1) = ty_exp tyenv exp in
+      let ty_a = TyVar (fresh_tyvar ()) in
+      let ty_b = TyVar (fresh_tyvar ()) in
+      let eqs = (eqs_of_subst s1) @ [(ty1, TyPair (ty_a, ty_b))] in
+      let s2 = unify eqs in
+      (s2, subst_type s2 ty_a)
+  | Proj2Exp exp ->
+      let (s1, ty1) = ty_exp tyenv exp in
+      let ty_a = TyVar (fresh_tyvar ()) in
+      let ty_b = TyVar (fresh_tyvar ()) in
+      let eqs = (eqs_of_subst s1) @ [(ty1, TyPair (ty_a, ty_b))] in
+      let s2 = unify eqs in
+      (s2, subst_type s2 ty_b)
   | _ -> err "Not Implemented!"
 
 

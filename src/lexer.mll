@@ -11,6 +11,8 @@ let reservedWords = [
   ("fun", Parser.FUN); (* 3.4.1 *)
   ("rec", Parser.REC); (* 3.5.1 *)
   ("print_string", Parser.PRINT_STRING);
+  ("proj1", Parser.PROJ1); 
+  ("proj2", Parser.PROJ2); 
 ]
 }
 
@@ -35,13 +37,13 @@ rule main = parse
 | "]" { Parser.RBRACKET } (* 3.6.2 *)
 | ";" { Parser.SEMICOLON } (* 3.6.2 *)
 | "::" { Parser.CONS } (* 3.6.2 *)
-
 |"^" { Parser.CONCAT } (* s1^s2 *)
 |".[" { Parser.DOT_LBRACKET } (* s[i] *)
 |'"' [^'"']*'"'
     { let s = Lexing.lexeme lexbuf in
       let len = String.length s in
       Parser.STRINGV (String.sub s 1 (len - 2)) }
+| "," { Parser.COMMA }
 
 | ['a'-'z'] ['a'-'z' '0'-'9' '_' '\'']*
     { let id = Lexing.lexeme lexbuf in
