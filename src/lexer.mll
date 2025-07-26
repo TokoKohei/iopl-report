@@ -36,9 +36,8 @@ rule main = parse
 | ";" { Parser.SEMICOLON } (* 3.6.2 *)
 | "::" { Parser.CONS } (* 3.6.2 *)
 
-|"^" { Parser.CONRET } (* s1^s2 *)
+|"^" { Parser.CONCAT } (* s1^s2 *)
 |".[" { Parser.DOT_LBRACKET } (* s[i] *)
-|"]" { Parser.RBRACKET } (* ] *)
 |'"' [^'"']*'"'
     { let s = Lexing.lexeme lexbuf in
       let len = String.length s in

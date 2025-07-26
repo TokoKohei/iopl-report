@@ -15,6 +15,7 @@ let rec subst_type (subst : (tyvar * ty) list) (ty : ty) : ty = (* 4.3.2 引数 
   let rec apply_subset (var, ty_subset) ty_target = (* 4.3.2 引数 (var, ty_subset) は1つの置換ペア、引数 ty_target は置換を適用する対象の型 *)
     match ty_target with
     | TyInt |TyBool -> ty_target (* 4.3.2 整数型または真偽値型の場合はそのまま返す *)
+    | TyString -> TyString
     | TyVar id ->
         (if id = var then ty_subset else TyVar id) (* 4.3.2 idが置換対象の型変数varと同じならty_subsetに置換、異なる場合は元の型変数TyVar idをそのまま返す *)
     | TyFun (ty1, ty2) ->
@@ -24,7 +25,6 @@ let rec subst_type (subst : (tyvar * ty) list) (ty : ty) : ty = (* 4.3.2 引数 
         TyList (apply_subset (var, ty_subset) t) (* 4.3.2 要素型 t に再帰的に置換を適用 *) 
     in
     List.fold_left (fun acc_ty subst_pair -> apply_subset subst_pair acc_ty) ty subst (* 4.3.2 置換リストsubstを左から順に処理 *)
-    | TyString -> TyString
 
 (* 4.3.5 eqs_of_subst : subst -> (ty * ty) list
    型代入を型の等式集合に変換．型の等式制約 ty1 = ty2 は (ty1,ty2) という
@@ -127,7 +127,7 @@ let rec ty_exp tyenv exp =
                 [(ty1, TyString); (ty2, TyString)] in
       let s3 = unify eqs in (* 4.3.5 全制約を単一化し，型代入 s3 を得る *)
       (s3, TyString) (* 4.3.5 型代入 s3 と、結果の型 TyString を返す *)
-  | StrGetEXP (exp1, exp2) -> (* 文字列のインデックス取得の型推論 *)
+  | StrGetExp (exp1, exp2) -> (* 文字列のインデックス取得の型推論 *)
       let (s1, ty1) = ty_exp tyenv exp1 in (* 4.3.5 exp1 の型推論 *)
       let (s2, ty2) = ty_exp tyenv exp2 in (* 4.3.5 exp2 の型推論 *)
       let eqs = (eqs_of_subst s1) @ (eqs_of_subst s2) @ (* 4.3.5 s1, s2 の型代入を制約集合に変換し，exp1 が文字列型、exp2 が整数型である制約を追加 *)
@@ -139,7 +139,7 @@ let rec ty_exp tyenv exp =
       let ty_res  = TyVar (fresh_tyvar ()) in (* 4.3.5 出力の戻り値の型として新しい型変数を生成 *)
       let eqs = (eqs_of_subst s) @ [(ty, TyString)] in
       let s2 = unify eqs in (* 4.3.5 全制約を単一化し，型代入 s2 を得る *)
-      (s2, TyString) (* 4.3.5 型代入 s
+      (s2, TyString)
   | _ -> err "Not Implemented!"
 
 

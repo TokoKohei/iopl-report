@@ -10,7 +10,7 @@
 %token <string> STRINGV 
 %token CONCAT
 %token PRINT_STRING 
-%token DOT_LBRACKET RBRACKET
+%token DOT_LBRACKET 
 
 %start toplevel
 %type <Syntax.program> toplevel
@@ -121,7 +121,7 @@ LetExpr :
 
 PExpr :
     l=PExpr PLUS r=CONCATExpr { BinOp (Plus, l, r) }
-  | e=Mxpr { e }
+  | e=CONCATExpr { e }
 
 CONCATExpr :
     l=CONCATExpr CONCAT r=MExpr { StrConcatExp (l, r) } (* 文字列連結 *)
@@ -133,8 +133,8 @@ MExpr :
 
 AppExpr :
     e1=AppExpr e2=AExpr { AppExp (e1, e2) } (* 3.4.1 *)
-  | e1 = AExpr DOT_LBRACKET e2=EExpr RBRACKET { StrGetExp (e1, e2) } 
-  | PRINT_STRING e=AExpr { PrintStringExp e } 
+  | e1 = AExpr DOT_LBRACKET e2=AExpr RBRACKET { StrGetExp (e1, e2) } 
+  | PRINT_STRING e=AExpr { PrintStrExp e } 
   | e=AExpr { e }
 
 LetRecExpr :

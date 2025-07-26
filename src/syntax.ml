@@ -17,7 +17,7 @@ type exp =
   | ListExp of exp list (* 3.6.2 *)
   | SLit of string
   | StrConcatExp of exp * exp 
-  | StrGetEXP of exp * exp 
+  | StrGetExp of exp * exp 
   | PrintStrExp of exp 
 
 

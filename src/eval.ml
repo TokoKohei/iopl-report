@@ -28,7 +28,7 @@ let rec string_of_exval = function
             "[" ^ String.concat "; " (List.rev acc) ^ " | " ^ tail_str ^ "]"
       in
       list_to_string [string_of_exval head] tail
-  | StringV s: id -> "\"" ^ s ^ "\"" (* 文字列値の文字列表現 *)
+  | StringV s  -> "\"" ^ s ^ "\"" (* 文字列値の文字列表現 *)
 
 let pp_val v = print_string (string_of_exval v)
 
@@ -88,12 +88,12 @@ let rec eval_exp env = function
       (match str1, str2 with
          StringV s1, StringV s2 -> StringV (s1 ^ s2) (* 文字列を連結 *)
        | _, _ -> err "Both arguments must be strings: ^")
-  | StrGetEXP (exp1, exp2) -> (* 文字列のインデックス取得 *)
+  | StrGetExp (exp1, exp2) -> (* 文字列のインデックス取得 *)
       let str = eval_exp env exp1 in
       let index = eval_exp env exp2 in
       (match str, index with
          StringV s, IntV i ->
-          if n>= 0 && i < String.length s then
+          if i >= 0 && i < String.length s then
             StringV (String.sub s i 1) (* インデックスが有効な場合、文字を取得 *)
           else
             err ("Index out of bounds: " ^ string_of_int i)
@@ -104,7 +104,7 @@ let rec eval_exp env = function
          StringV str_val ->
           print_string str_val;
           flush_all ();
-        StringV string_of_exval
+          StringV str_val
         | _ -> err "Argument must be a string: print_string")
 
       
