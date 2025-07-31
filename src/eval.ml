@@ -6,8 +6,8 @@ type exval =
   | ProcV of id * exp * dnval Environment.t ref (* 3.4.1 クロージャが作成された時点の環境をデータ構造に含めている．& 3.5.1 Changed! 関数閉包内の環境を参照型で保持するように変更 *)
   | ConsV of exval * exval (* 3.6.2 cons cell: (head, tail) *)
   | NilV (* 3.6.2 空リスト *)
-  | StringV of string
-  | PairV of exval * exval
+  | StringV of string (* 文字列値 *)
+  | PairV of exval * exval (* ペア値 *)
 and dnval = exval
 
 exception Error of string
@@ -30,7 +30,7 @@ let rec string_of_exval = function
       in
       list_to_string [string_of_exval head] tail
   | StringV s  -> "\"" ^ s ^ "\"" (* 文字列値の文字列表現 *)
-  | PairV (v1, v2) ->
+  | PairV (v1, v2) ->  (* ペア値の文字列表現 *)
      "(" ^ string_of_exval v1 ^ ", " ^ string_of_exval v2 ^ ")"
 
 let pp_val v = print_string (string_of_exval v)
@@ -84,9 +84,9 @@ let rec eval_exp env = function
         let arg1 = eval_exp env exp1 in
         let arg2 = eval_exp env exp2 in
         apply_prim op arg1 arg2)
-  | SLit s -> StringV s 
+  | SLit s -> StringV s  (* 文字列リテラルの評価 *)
   | StrConcatExp (exp1, exp2) -> (* 文字列連結の評価 *)
-      let str1 = eval_exp env exp1 in
+      let str1 = eval_exp env exp1 in 
       let str2 = eval_exp env exp2 in
       (match str1, str2 with
          StringV s1, StringV s2 -> StringV (s1 ^ s2) (* 文字列を連結 *)
@@ -102,20 +102,24 @@ let rec eval_exp env = function
             err ("Index out of bounds: " ^ string_of_int i)
        | _, _ -> err "First argument must be a string and second must be an integer: .[i]")
   | PrintStrExp exp -> (* 文字列を出力する *)
-      let str_val = eval_exp env exp in
-      (match str_val with
+      let str_val = eval_exp env exp in 
+      (* 文字列値であることを確認して出力 *)
+      (match str_val with  
          StringV str_val ->
           print_string str_val;
           flush_all ();
           StringV str_val
         | _ -> err "Argument must be a string: print_string")
-  | PairExp (exp1, exp2) ->
+  | PairExp (exp1, exp2) -> (* ペアの評価 *)
+    (* exp1 と exp2 の評価を行い，それぞれの値を取得 *)
     let v1 = eval_exp env exp1 in
     let v2 = eval_exp env exp2 in
     PairV (v1, v2)
-  | Proj1Exp exp ->
+  | Proj1Exp exp -> (* ペアの第1要素の取得 *)
+    (* exp の評価を行い，ペア値を取得 *)
     (match eval_exp env exp with PairV (v, _) -> v | _ -> err "Argument of proj1 must be a pair")
-  | Proj2Exp exp ->
+  | Proj2Exp exp -> (* ペアの第2要素の取得 *)
+    (* exp の評価を行い，ペア値を取得 *)
     (match eval_exp env exp with PairV (_, v) -> v | _ -> err "Argument of proj2 must be a pair")
       
   | IfExp (exp1, exp2, exp3) ->

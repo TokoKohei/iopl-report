@@ -21,7 +21,8 @@ let rec subst_type (subst : (tyvar * ty) list) (ty : ty) : ty = (* 4.3.2 引数 
     | TyFun (ty1, ty2) ->
         TyFun (apply_subset (var, ty_subset) ty1, (* 4.3.2 引数型ty1と戻り値型ty2の両方に再帰的に置換を適用 *)
                apply_subset (var, ty_subset) ty2) 
-    | TyPair (ty1, ty2) ->
+    | TyPair (ty1, ty2) -> 
+        (* ペア型の場合、各要素型ty1とty2に再帰的に置換を適用 *)
         TyPair (apply_subset (var, ty_subset) ty1, apply_subset (var, ty_subset) ty2)
     | TyList t -> 
         TyList (apply_subset (var, ty_subset) t) (* 4.3.2 要素型 t に再帰的に置換を適用 *) 
@@ -46,8 +47,8 @@ let rec freevars ty =
   | TyVar id -> [id] (* 4.3.3 型変数 TyVar id が出てきたら、その変数名 id をリストにして返す *)
   | TyFun (t1, t2) -> freevars t1 @ freevars t2 (* 4.3.3 関数型 t1 -> t2 の場合、それぞれの型の自由変数を再帰的に求めて結合する *)
   | TyList t -> freevars t (* 4.3.3 リスト型 t list の要素型の自由変数を求める *)
-  | TyString -> []
-  | TyPair (t1, t2) -> freevars t1 @ freevars t2
+  | TyString -> [] (* 文字列型 TyString には型変数は含まれないので空リスト [] を返す *)
+  | TyPair (t1, t2) -> freevars t1 @ freevars t2 (* ペア型 t1 * t2 の場合、それぞれの要素型の自由変数を再帰的に求めて結合する *)
 
 let rec unify eqs = (* 4.3.3 制約リスト eqs が空かどうか、またはペアの形を見てパターンマッチする *)
   match eqs with
@@ -67,10 +68,10 @@ let rec unify eqs = (* 4.3.3 制約リスト eqs が空かどうか、または�
       unify ((a1, b1) :: (a2, b2) :: rest) (* 4.3.3 関数型の引数と戻り値の型をペアにして残りの制約リストに追加 *)
   | (TyList ty1, TyList ty2) :: rest -> (* 4.3.3 リスト型のペアの場合 *)
       unify ((ty1, ty2) :: rest)  (* 4.3.3 リスト型の要素型をペアにして残りの制約リストに追加 *)
-  | (TyPair (a1, a2), TyPair (b1, b2)) :: rest ->
-      unify ((a1, b1) :: (a2, b2) :: rest)
-  | (TyString, TyString) :: rest -> 
-      unify rest 
+  | (TyPair (a1, a2), TyPair (b1, b2)) :: rest -> (* ペア型のペアの場合 *)
+      unify ((a1, b1) :: (a2, b2) :: rest) (* ペア型の各要素の型をペアにして残りの制約リストに追加 *)
+  | (TyString, TyString) :: rest ->  (* 文字列型のペアの場合 *)
+      unify rest  (* 文字列型は同じ型なので制約リストから削除して残りを処理 *)
   | _ -> raise (Error "unification failed")
 
   (* 4.3.5 型環境 tyenv と式 exp を受け取って，型代入と exp の型のペアを返す *)
@@ -129,18 +130,18 @@ let rec ty_exp tyenv exp =
       (s3, subst_type s3 ranty) (* 4.3.5 型代入 s3 と，それを適用した戻り値型 ranty を返す *)
   | SLit _ -> ([], TyString) 
   | StrConcatExp (exp1, exp2) -> (* 文字列連結の型推論 *)
-      let (s1, ty1) = ty_exp tyenv exp1 in (* 4.3.5 exp1 の型推論 *)
-      let (s2, ty2) = ty_exp tyenv exp2 in (* 4.3.5 exp2 の型推論 *)
-      let eqs = (eqs_of_subst s1) @ (eqs_of_subst s2) @ (* 4.3.5 s1, s2 の型代入を制約集合に変換し，両方が文字列型である制約を追加 *)
+      let (s1, ty1) = ty_exp tyenv exp1 in (*  exp1 の型推論 *)
+      let (s2, ty2) = ty_exp tyenv exp2 in (*  exp2 の型推論 *)
+      let eqs = (eqs_of_subst s1) @ (eqs_of_subst s2) @ (* s1, s2 の型代入を制約集合に変換し，両方が文字列型である制約を追加 *)
                 [(ty1, TyString); (ty2, TyString)] in
-      let s3 = unify eqs in (* 4.3.5 全制約を単一化し，型代入 s3 を得る *)
-      (s3, TyString) (* 4.3.5 型代入 s3 と、結果の型 TyString を返す *)
+      let s3 = unify eqs in (* 全制約を単一化し，型代入 s3 を得る *)
+      (s3, TyString) (* 型代入 s3 と、結果の型 TyString を返す *)
   | StrGetExp (exp1, exp2) -> (* 文字列のインデックス取得の型推論 *)
-      let (s1, ty1) = ty_exp tyenv exp1 in (* 4.3.5 exp1 の型推論 *)
-      let (s2, ty2) = ty_exp tyenv exp2 in (* 4.3.5 exp2 の型推論 *)
-      let eqs = (eqs_of_subst s1) @ (eqs_of_subst s2) @ (* 4.3.5 s1, s2 の型代入を制約集合に変換し，exp1 が文字列型、exp2 が整数型である制約を追加 *)
+      let (s1, ty1) = ty_exp tyenv exp1 in (* exp1 の型推論 *)
+      let (s2, ty2) = ty_exp tyenv exp2 in (* exp2 の型推論 *)
+      let eqs = (eqs_of_subst s1) @ (eqs_of_subst s2) @ (* s1, s2 の型代入を制約集合に変換し，exp1 が文字列型、exp2 が整数型である制約を追加 *)
                 [(ty1, TyString); (ty2, TyInt)] in
-      let s3 = unify eqs in (* 4.3.5 全制約を単一化し，型代入 s3 を得る *)
+      let s3 = unify eqs in (* 全制約を単一化し，型代入 s3 を得る *)
       (s3, TyString) 
   | PrintStrExp exp -> (* 文字列の出力の型推論 *)
       let (s, ty) = ty_exp tyenv exp in
@@ -148,20 +149,23 @@ let rec ty_exp tyenv exp =
       let s2 = unify eqs in
       (* print式はNilVを返すので、その型である 'a list を表現 *)
       (s2, TyList (TyVar (fresh_tyvar ())))
-  | PairExp (exp1, exp2) ->
+  | PairExp (exp1, exp2) -> (* ペアの型推論 *)
+      (* exp1 と exp2 の型推論を行い，それぞれの型を取得 *)
       let (s1, ty1) = ty_exp tyenv exp1 in
       let (s2, ty2) = ty_exp tyenv exp2 in
       let eqs = (eqs_of_subst s1) @ (eqs_of_subst s2) in
       let s3 = unify eqs in
       (s3, TyPair (subst_type s3 ty1, subst_type s3 ty2))
-  | Proj1Exp exp ->
+  | Proj1Exp exp -> (* ペアの第1要素の型推論 *)
+      (* exp の型推論を行い，その型を取得 *)
       let (s1, ty1) = ty_exp tyenv exp in
       let ty_a = TyVar (fresh_tyvar ()) in
       let ty_b = TyVar (fresh_tyvar ()) in
       let eqs = (eqs_of_subst s1) @ [(ty1, TyPair (ty_a, ty_b))] in
       let s2 = unify eqs in
       (s2, subst_type s2 ty_a)
-  | Proj2Exp exp ->
+  | Proj2Exp exp -> (* ペアの第2要素の型推論 *)
+      (* exp の型推論を行い，その型を取得 *)
       let (s1, ty1) = ty_exp tyenv exp in
       let ty_a = TyVar (fresh_tyvar ()) in
       let ty_b = TyVar (fresh_tyvar ()) in

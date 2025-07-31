@@ -39,9 +39,9 @@ rule main = parse
 | "::" { Parser.CONS } (* 3.6.2 *)
 |"^" { Parser.CONCAT } (* s1^s2 *)
 |".[" { Parser.DOT_LBRACKET } (* s[i] *)
-|'"' [^'"']*'"'
-    { let s = Lexing.lexeme lexbuf in
-      let len = String.length s in
+|'"' [^'"']*'"' 
+    { let s = Lexing.lexeme lexbuf in  
+      let len = String.length s in 
       Parser.STRINGV (String.sub s 1 (len - 2)) }
 | "," { Parser.COMMA }
 

@@ -7,8 +7,8 @@
 %token <Syntax.id> ID 
 %token LET REC IN EQ (* 3.3.1 ,3.5.1 *)
 %token RARROW FUN (* 3.4.1 *)
-%token <string> STRINGV 
-%token CONCAT
+%token <string> STRINGV  
+%token CONCAT 
 %token PRINT_STRING 
 %token DOT_LBRACKET 
 %token COMMA PROJ1 PROJ2
@@ -121,7 +121,7 @@ LetExpr :
   | LET x=ID EQ e1=Expr IN e2=Expr { LetExp (x, e1, e2) } (* 3.3.1 従来の記法 *)
 
 PExpr :
-    l=PExpr PLUS r=CONCATExpr { BinOp (Plus, l, r) }
+    l=PExpr PLUS r=CONCATExpr { BinOp (Plus, l, r) } 
   | e=CONCATExpr { e }
 
 CONCATExpr :
@@ -134,11 +134,11 @@ MExpr :
 
 AppExpr :
     e1=AppExpr e2=AExpr { AppExp (e1, e2) } (* 3.4.1 *)
-  | e1 = AExpr DOT_LBRACKET e2=AExpr RBRACKET { StrGetExp (e1, e2) } 
-  | PRINT_STRING e=AExpr { PrintStrExp e } 
+  | e1 = AExpr DOT_LBRACKET e2=AExpr RBRACKET { StrGetExp (e1, e2) }  (* 文字列のインデックス取得 *)
+  | PRINT_STRING e=AExpr { PrintStrExp e }  (* 文字列出力 *)
   | e=AExpr { e }
-  | PROJ1 e=AExpr { Proj1Exp e }
-  | PROJ2 e=AExpr { Proj2Exp e }
+  | PROJ1 e=AExpr { Proj1Exp e } (* ペアの第1要素を取得 *)
+  | PROJ2 e=AExpr { Proj2Exp e } (* ペアの第2要素を取得 *)
 
 LetRecExpr :
     LET REC f=ID params=ParamList EQ e1=Expr IN e2=Expr {
@@ -159,7 +159,7 @@ AExpr :
   | FALSE  { BLit false }
   | i=ID   { Var i }
   | LPAREN e=Expr RPAREN { e }
-  | LPAREN e1=Expr COMMA e2=Expr RPAREN { PairExp (e1, e2) }
+  | LPAREN e1=Expr COMMA e2=Expr RPAREN { PairExp (e1, e2) } (* ペア式の追加 *)
   | e=ListExpr { e } (* 3.6.2 リスト式をAExprに追加 *)
   | s=STRINGV { SLit s } 
 
